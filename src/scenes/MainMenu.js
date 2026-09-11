@@ -27,17 +27,17 @@ export class MainMenu extends Phaser.Scene {
 
         const statsBg = this.add.graphics();
         statsBg.fillStyle(0x064e3b, 0.8);
-        statsBg.fillRoundedRect(width / 2 - 220, 420, 440, 200, 16);
+        statsBg.fillRoundedRect(width / 2 - 250, 420, 500, 200, 16);
         statsBg.lineStyle(2, 0x052e16, 1);
-        statsBg.strokeRoundedRect(width / 2 - 220, 420, 440, 200, 16);
+        statsBg.strokeRoundedRect(width / 2 - 250, 420, 500, 200, 16);
 
         this.add.text(width / 2, 470, `Partidas jugadas: ${games}`, {
-            fontSize: '26px',
+            fontSize: '35px',
             color: '#ffffff'
         }).setOrigin(0.5);
 
         this.add.text(width / 2, 540, `Mejor tiempo: ${bestTimeStr}`, {
-            fontSize: '26px',
+            fontSize: '35px',
             color: '#fbbf24',
             fontStyle: 'bold'
         }).setOrigin(0.5);

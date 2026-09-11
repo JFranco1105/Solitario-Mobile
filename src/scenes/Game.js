@@ -14,6 +14,74 @@ export class Game extends Phaser.Scene {
         const V_WIDTH = 720;
         const V_HEIGHT = 1280;
 
+        SUITS.forEach(suit => {
+            VALUES.forEach(valStr => {
+                const textureKey = `card_${suit}_${valStr}_gigante`;
+
+                if (this.textures.exists(textureKey)) return;
+
+                // Dimensiones originales de tus cartas: 88x128
+                const canvasTexture = this.textures.createCanvas(textureKey, 88, 128);
+                const ctx = canvasTexture.context;
+
+                const W = 88;
+                const H = 128;
+                const R = 12; // 👈 Radio del redondeado de la carta
+
+                // 1. DIBUJAR LA CARTA CON BORDES REDONDEADOS
+                ctx.beginPath();
+                ctx.moveTo(R, 0);
+                ctx.lineTo(W - R, 0);
+                ctx.arcTo(W, 0, W, H, R);
+                ctx.lineTo(W, H - R);
+                ctx.arcTo(W, H, 0, H, R);
+                ctx.lineTo(R, H);
+                ctx.arcTo(0, H, 0, 0, R);
+                ctx.lineTo(0, R);
+                ctx.arcTo(0, 0, W, 0, R);
+                ctx.closePath();
+
+                // Relleno blanco de la carta
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                // Opcional: Un sutil borde gris de 1px para definir mejor la carta si se pisa con otra
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.stroke();
+
+                // Configuración de color (Rojo o Negro)
+                const isRed = suit === '♥' || suit === '♦';
+                ctx.fillStyle = isRed ? '#ef4444' : '#1e293b';
+
+                // 2. NÚMERO + SÍMBOLO CORRESPONDIENTE EN LA ESQUINA (Fila Superior)
+                ctx.font = 'bold 30px sans-serif';
+                ctx.textBaseline = 'top';
+                ctx.textAlign = 'left';
+
+                // Dibujamos el número/letra (Ej: '10' o 'K') en la esquina izquierda
+                ctx.fillText(valStr, 6, 8);
+
+                // Calculamos el espacio que ocupa el número para pegar el mini símbolo justo al lado
+                const textMetrics = ctx.measureText(valStr);
+                const numberWidth = textMetrics.width;
+
+                // Dibujamos el símbolo mini correspondiente inmediatamente a la derecha del número
+                ctx.font = '36px sans-serif';
+                ctx.fillText(suit, 6 + numberWidth + 2, 9); // '2' píxeles de espacio de separación
+
+                // 3. SÍMBOLO GIGANTE EN EL CENTRO
+                ctx.font = '68px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(suit, W / 2, (H / 2) + 12); // Desplazado ligeramente hacia abajo para equilibrar el espacio libre
+
+                // Aplicar y guardar la textura en Phaser
+                canvasTexture.refresh();
+            });
+        });
+
+
         stats.incrementGamesPlayed();
 
         this.input.mouse.disableContextMenu();
@@ -231,8 +299,9 @@ export class Game extends Phaser.Scene {
         SUITS.forEach(suit => {
             VALUES.forEach((valStr, valIdx) => {
                 const isRed = suit === '♥' || suit === '♦';
-                const textureKey = `card_${suit}_${valStr}`;
+                const textureKey = `card_${suit}_${valStr}_gigante`;
                 const sprite = this.add.image(0, 0, 'card_back').setOrigin(0);
+
 
                 const card = {
                     id: id++,
@@ -847,41 +916,49 @@ export class Game extends Phaser.Scene {
         bar.fillRect(0, height - 90, width, 90);
 
         // Botón Menú
-        const menuX = 60;
+        const menuX = 75;
         const menuY = height - 50;
+        const menuW = 120;
+        const menuH = 55;
         const menuGfx = this.add.graphics();
         menuGfx.fillStyle(0x1e3a8a, 1);
-        menuGfx.fillRoundedRect(menuX - 45, menuY - 20, 90, 40, 10);
-        this.add.text(menuX, menuY, 'Menú', { fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-        const menuZone = this.add.zone(menuX, menuY, 90, 40).setInteractive({ useHandCursor: true });
+        menuGfx.fillRoundedRect(menuX - (menuW / 2), menuY - (menuH / 2), menuW, menuH, 10);
+        this.add.text(menuX, menuY, 'Menú', { fontSize: '34px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        const menuZone = this.add.zone(menuX, menuY, menuW, menuH).setInteractive({ useHandCursor: true });
         menuZone.on('pointerdown', (p) => { if (p.button === 0 || p.button === undefined) this.scene.start('MainMenu'); });
 
+
         // Botón Undo
-        const undoX = 180;
+        const undoX = 185;
         const undoY = height - 50;
+        const undoW = 55;
+        const undoH = 55;
         const undoGfx = this.add.graphics();
         undoGfx.fillStyle(0xd97706, 1);
-        undoGfx.fillRoundedRect(undoX - 20, undoY - 20, 40, 40, 10);
-        this.add.text(undoX, undoY, '↩', { fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-        const undoZone = this.add.zone(undoX, undoY, 40, 40).setInteractive({ useHandCursor: true });
+        undoGfx.fillRoundedRect(undoX - (undoW / 2), undoY - (undoH / 2), undoW, undoH, 10);
+        this.add.text(undoX, undoY, '↩', { fontSize: '32px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        const undoZone = this.add.zone(undoX, undoY, undoW, undoH).setInteractive({ useHandCursor: true });
         undoZone.on('pointerdown', (p) => { if (p.button === 0 || p.button === undefined) this.undoMove(); });
 
+
         // Cronómetro
-        this.timerText = this.add.text(350, height - 50, '⏱ 00:00', {
-            fontSize: '24px',
+        this.timerText = this.add.text(355, height - 50, '⏱ 00:00', {
+            fontSize: '32px',
             color: '#fbbf24',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
         // Botón Reiniciar
-        const btnX = 600;
+        const btnX = 615;
         const btnY = height - 50;
+        const btnW = 170;
+        const btnH = 55;
+
         const btnGfx = this.add.graphics();
         btnGfx.fillStyle(0x2563eb, 1);
-        btnGfx.fillRoundedRect(btnX - 75, btnY - 20, 150, 40, 10);
-        this.add.text(btnX, btnY, 'Reiniciar', { fontSize: '22px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-
-        const btnZone = this.add.zone(btnX, btnY, 150, 40).setInteractive({ useHandCursor: true });
+        btnGfx.fillRoundedRect(btnX - (btnW / 2), btnY - (btnH / 2), btnW, btnH, 10);
+        this.add.text(btnX, btnY, 'Reiniciar', { fontSize: '28px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        const btnZone = this.add.zone(btnX, btnY, btnW, btnH).setInteractive({ useHandCursor: true });
         btnZone.on('pointerdown', (pointer) => {
             if (pointer.button !== 0 && pointer.button !== undefined) return;
             this.showRestartConfirmModal();
