@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { createGameConfig } from './game';
+import { createGameConfig } from './Game/main.js';
 import { initAdMob } from './admob';
 
 window.addEventListener('DOMContentLoaded', async () => {

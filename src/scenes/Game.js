@@ -1,28 +1,27 @@
 import Phaser from 'phaser';
-import { showInterstitialAd } from './admob';
+import { stats } from '../utils/stats';
+import { showInterstitialAd } from '../admob.js';
 
 const SUITS = ['♥', '♦', '♣', '♠'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
-export class SolitaireScene extends Phaser.Scene {
+export class Game extends Phaser.Scene {
     constructor() {
-        super({ key: 'SolitaireScene' });
-        this.gamesPlayed = 0;
+        super('Game');
     }
 
     create() {
         const V_WIDTH = 720;
         const V_HEIGHT = 1280;
 
-        // Desactivar menú contextual
+        stats.incrementGamesPlayed();
+
         this.input.mouse.disableContextMenu();
 
-        // Fondo verde clásico
         const bg = this.add.graphics();
         bg.fillStyle(0x0e5229, 1);
         bg.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
-        // Dimensiones y posiciones fijas
         this.cardWidth = 88;
         this.cardHeight = 128;
         this.gapX = 12;
@@ -31,17 +30,14 @@ export class SolitaireScene extends Phaser.Scene {
         this.tableauY = 200;
         this.cardOverlap = 32;
 
-        // Variables de victoria, animación e historial
         this.isWinAnimating = false;
         this.bouncingCards = [];
         this.history = [];
 
-        // Variables de cronómetro
         this.secondsElapsed = 0;
         this.timerStarted = false;
         this.timerEvent = null;
 
-        this.createCardTextures();
         this.createBoardZones();
         this.setupDragEvents();
         this.createUI(V_WIDTH, V_HEIGHT);
@@ -82,69 +78,6 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
-    // --- TEXTURAS ---
-    createCardTextures() {
-        if (this.textures.exists('card_back')) return;
-
-        // Reverso
-        const backGfx = this.make.graphics({ add: false });
-        backGfx.fillStyle(0x1e3a8a);
-        backGfx.fillRoundedRect(0, 0, this.cardWidth, this.cardHeight, 8);
-        backGfx.lineStyle(3, 0x3b82f6);
-        backGfx.strokeRoundedRect(3, 3, this.cardWidth - 6, this.cardHeight - 6, 6);
-        backGfx.generateTexture('card_back', this.cardWidth, this.cardHeight);
-        backGfx.destroy();
-
-        // Slot vacío
-        const slotGfx = this.make.graphics({ add: false });
-        slotGfx.lineStyle(2, 0x15803d, 0.7);
-        slotGfx.fillStyle(0x052e16, 0.4);
-        slotGfx.fillRoundedRect(0, 0, this.cardWidth, this.cardHeight, 8);
-        slotGfx.strokeRoundedRect(0, 0, this.cardWidth, this.cardHeight, 8);
-        slotGfx.generateTexture('card_slot', this.cardWidth, this.cardHeight);
-        slotGfx.destroy();
-
-        // Las 52 cartas
-        SUITS.forEach(suit => {
-            const isRed = suit === '♥' || suit === '♦';
-            const colorStr = isRed ? '#dc2626' : '#111827';
-
-            VALUES.forEach((valStr, valIdx) => {
-                const key = `card_${suit}_${valStr}`;
-                if (this.textures.exists(key)) return;
-
-                const canvasTexture = this.textures.createCanvas(key, this.cardWidth, this.cardHeight);
-                const ctx = canvasTexture.context;
-
-                ctx.fillStyle = '#ffffff';
-                if (typeof ctx.roundRect === 'function') {
-                    ctx.beginPath();
-                    ctx.roundRect(0, 0, this.cardWidth, this.cardHeight, 8);
-                    ctx.fill();
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = '#d1d5db';
-                    ctx.stroke();
-                } else {
-                    ctx.fillRect(0, 0, this.cardWidth, this.cardHeight);
-                }
-
-                ctx.fillStyle = colorStr;
-                ctx.font = 'bold 18px sans-serif';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'top';
-                ctx.fillText(valStr, 8, 6);
-                ctx.fillText(suit, 8, 26);
-
-                ctx.font = '36px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(suit, this.cardWidth / 2, this.cardHeight / 2 + 6);
-
-                canvasTexture.refresh();
-            });
-        });
-    }
-
     createBoardZones() {
         this.foundations = [];
         this.tableaus = [];
@@ -175,7 +108,6 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
-    // --- HISTORIAL E HISTORIAL DE MOVIMIENTOS (UNDO) ---
     recordState() {
         const snapshot = {
             stock: [...this.stock.map(c => c.id)],
@@ -239,7 +171,6 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
-    // --- CRONÓMETRO ---
     resetTimer() {
         if (this.timerEvent) {
             this.timerEvent.destroy();
@@ -285,6 +216,7 @@ export class SolitaireScene extends Phaser.Scene {
         this.history = [];
         this.resetTimer();
         this.hideVictoryModal();
+        this.hideRestartConfirmModal();
 
         if (this.deck) {
             this.deck.forEach(c => c.sprite.destroy());
@@ -422,7 +354,6 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
-    // --- ARRASTRE Y EVENTOS ---
     setupDragEvents() {
         this.draggedCards = [];
         this.dragStartPos = [];
@@ -516,7 +447,6 @@ export class SolitaireScene extends Phaser.Scene {
             }
 
             if (!dropped) {
-                // Si no se colocó, quitamos el estado guardado en vano
                 this.history.pop();
 
                 this.draggedCards.forEach((c, idx) => {
@@ -689,6 +619,7 @@ export class SolitaireScene extends Phaser.Scene {
     checkWinCondition() {
         const totalInFoundations = this.foundations.reduce((acc, f) => acc + f.cards.length, 0);
         if (totalInFoundations === 52 && !this.isWinAnimating) {
+            stats.saveTime(this.secondsElapsed);
             this.triggerWinSequence();
         }
     }
@@ -764,11 +695,13 @@ export class SolitaireScene extends Phaser.Scene {
         }).setOrigin(0.5);
         this.modalContainer.add(timeText);
 
-        const gamesText = this.add.text(width / 2, modalY + 210, `🎮 Partidas completadas: ${this.gamesPlayed + 1}`, {
+        const bestTimeSec = stats.getBestTime();
+        const bestTimeStr = stats.formatTime(bestTimeSec);
+        const recordText = this.add.text(width / 2, modalY + 210, `⚡ Mejor récord: ${bestTimeStr}`, {
             fontSize: '24px',
-            color: '#d1fae5'
+            color: '#fbbf24'
         }).setOrigin(0.5);
-        this.modalContainer.add(gamesText);
+        this.modalContainer.add(recordText);
 
         const btnW = 260;
         const btnH = 60;
@@ -780,8 +713,8 @@ export class SolitaireScene extends Phaser.Scene {
         btnGfx.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 16);
         this.modalContainer.add(btnGfx);
 
-        const btnText = this.add.text(btnX, btnY, 'Jugar de nuevo', {
-            fontSize: '24px',
+        const btnText = this.add.text(btnX, btnY, 'Menú Principal', {
+            fontSize: '22px',
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0.5);
@@ -793,7 +726,7 @@ export class SolitaireScene extends Phaser.Scene {
 
         btnZone.on('pointerdown', (pointer) => {
             if (pointer.button !== 0 && pointer.button !== undefined) return;
-            this.onGameFinished();
+            this.scene.start('MainMenu');
         });
     }
 
@@ -804,26 +737,133 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
+    showRestartConfirmModal() {
+        if (this.restartModalContainer) return;
+
+        const width = 720;
+        const height = 1280;
+
+        this.restartModalContainer = this.add.container(0, 0).setDepth(30000);
+
+        const bgOverlay = this.add.graphics();
+        bgOverlay.fillStyle(0x000000, 0.75);
+        bgOverlay.fillRect(0, 0, width, height);
+        this.restartModalContainer.add(bgOverlay);
+
+        const modalW = 540;
+        const modalH = 320;
+        const modalX = (width - modalW) / 2;
+        const modalY = (height - modalH) / 2;
+
+        const modalBg = this.add.graphics();
+        modalBg.fillStyle(0x064e3b, 1);
+        modalBg.fillRoundedRect(modalX, modalY, modalW, modalH, 20);
+        modalBg.lineStyle(4, 0xf59e0b, 1);
+        modalBg.strokeRoundedRect(modalX, modalY, modalW, modalH, 20);
+        this.restartModalContainer.add(modalBg);
+
+        const title = this.add.text(width / 2, modalY + 60, '⚠️ ¿Reiniciar?', {
+            fontSize: '38px',
+            color: '#fbbf24',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.restartModalContainer.add(title);
+
+        const desc = this.add.text(width / 2, modalY + 130, '¿Seguro que quieres reiniciar\nla partida actual?', {
+            fontSize: '24px',
+            color: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5);
+        this.restartModalContainer.add(desc);
+
+        // Botón No (Izquierda)
+        const noBtnW = 200;
+        const noBtnH = 55;
+        const noBtnX = modalX + 135;
+        const noBtnY = modalY + 240;
+
+        const noGfx = this.add.graphics();
+        noGfx.fillStyle(0x374151, 1);
+        noGfx.fillRoundedRect(noBtnX - noBtnW / 2, noBtnY - noBtnH / 2, noBtnW, noBtnH, 14);
+        this.restartModalContainer.add(noGfx);
+
+        const noText = this.add.text(noBtnX, noBtnY, 'No', {
+            fontSize: '22px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.restartModalContainer.add(noText);
+
+        const noZone = this.add.zone(noBtnX, noBtnY, noBtnW, noBtnH).setInteractive({ useHandCursor: true });
+        this.restartModalContainer.add(noZone);
+        noZone.on('pointerdown', (p) => {
+            if (p.button !== 0 && p.button !== undefined) return;
+            this.hideRestartConfirmModal();
+        });
+
+        // Botón Sí (Derecha)
+        const yesBtnW = 200;
+        const yesBtnH = 55;
+        const yesBtnX = modalX + modalW - 135;
+        const yesBtnY = modalY + 240;
+
+        const yesGfx = this.add.graphics();
+        yesGfx.fillStyle(0x2563eb, 1);
+        yesGfx.fillRoundedRect(yesBtnX - yesBtnW / 2, yesBtnY - yesBtnH / 2, yesBtnW, yesBtnH, 14);
+        this.restartModalContainer.add(yesGfx);
+
+        const yesText = this.add.text(yesBtnX, yesBtnY, 'Sí, reiniciar', {
+            fontSize: '22px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.restartModalContainer.add(yesText);
+
+        const yesZone = this.add.zone(yesBtnX, yesBtnY, yesBtnW, yesBtnH).setInteractive({ useHandCursor: true });
+        this.restartModalContainer.add(yesZone);
+        yesZone.on('pointerdown', async (p) => {
+            if (p.button !== 0 && p.button !== undefined) return;
+            this.hideRestartConfirmModal();
+
+            // 20% de probabilidad (Math.random() < 0.2)
+            if (Math.random() < 0.2) {
+                await showInterstitialAd();
+            }
+
+            this.startNewGame();
+        });
+    }
+
+    hideRestartConfirmModal() {
+        if (this.restartModalContainer) {
+            this.restartModalContainer.destroy();
+            this.restartModalContainer = null;
+        }
+    }
+
     createUI(width, height) {
         const bar = this.add.graphics();
         bar.fillStyle(0x052e16, 0.95);
         bar.fillRect(0, height - 90, width, 90);
 
-        // Texto de partidas
-        this.statusText = this.add.text(20, height - 50, `Partidas: ${this.gamesPlayed}`, {
-            fontSize: '24px',
-            color: '#ffffff',
-            fontStyle: 'bold'
-        }).setOrigin(0, 0.5);
+        // Botón Menú
+        const menuX = 60;
+        const menuY = height - 50;
+        const menuGfx = this.add.graphics();
+        menuGfx.fillStyle(0x1e3a8a, 1);
+        menuGfx.fillRoundedRect(menuX - 45, menuY - 20, 90, 40, 10);
+        this.add.text(menuX, menuY, 'Menú', { fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        const menuZone = this.add.zone(menuX, menuY, 90, 40).setInteractive({ useHandCursor: true });
+        menuZone.on('pointerdown', (p) => { if (p.button === 0 || p.button === undefined) this.scene.start('MainMenu'); });
 
-        // Botón Deshacer (Undo)
-        const undoX = 220;
+        // Botón Undo
+        const undoX = 180;
         const undoY = height - 50;
         const undoGfx = this.add.graphics();
         undoGfx.fillStyle(0xd97706, 1);
         undoGfx.fillRoundedRect(undoX - 20, undoY - 20, 40, 40, 10);
         this.add.text(undoX, undoY, '↩', { fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-        const undoZone = this.add.zone(undoX, undoY, 90, 40).setInteractive({ useHandCursor: true });
+        const undoZone = this.add.zone(undoX, undoY, 40, 40).setInteractive({ useHandCursor: true });
         undoZone.on('pointerdown', (p) => { if (p.button === 0 || p.button === undefined) this.undoMove(); });
 
         // Cronómetro
@@ -839,37 +879,12 @@ export class SolitaireScene extends Phaser.Scene {
         const btnGfx = this.add.graphics();
         btnGfx.fillStyle(0x2563eb, 1);
         btnGfx.fillRoundedRect(btnX - 75, btnY - 20, 150, 40, 10);
-        this.add.text(btnX, btnY, 'Reiniciar', { fontSize: '24px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(btnX, btnY, 'Reiniciar', { fontSize: '22px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
-        const btnZone = this.add.zone(btnX, btnY, 110, 40).setInteractive({ useHandCursor: true });
+        const btnZone = this.add.zone(btnX, btnY, 150, 40).setInteractive({ useHandCursor: true });
         btnZone.on('pointerdown', (pointer) => {
             if (pointer.button !== 0 && pointer.button !== undefined) return;
-            this.onGameFinished();
+            this.showRestartConfirmModal();
         });
     }
-
-    async onGameFinished() {
-        this.gamesPlayed++;
-        this.statusText.setText(`Partidas: ${this.gamesPlayed}`);
-
-        if (this.gamesPlayed % 2 === 0) {
-            await showInterstitialAd();
-        }
-
-        this.startNewGame();
-    }
-}
-
-export function createGameConfig() {
-    return {
-        type: Phaser.AUTO,
-        parent: 'app',
-        width: 720,
-        height: 1280,
-        scale: {
-            mode: Phaser.Scale.FIT,
-            autoCenter: Phaser.Scale.CENTER_BOTH
-        },
-        scene: [SolitaireScene]
-    };
 }

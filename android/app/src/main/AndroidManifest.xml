@@ -41,6 +41,6 @@
     </application>
 
     <!-- Permissions -->
-w
+
     <uses-permission android:name="android.permission.INTERNET" />
 </manifest>
