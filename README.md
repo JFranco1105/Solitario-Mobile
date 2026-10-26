@@ -2,10 +2,6 @@
 
 Juego de Sudoku para móvil, desarrollado con JavaScript y empaquetado como app Android con Capacitor.
 
-![Captura de Sudoku Mobile](screenshot.png)
-
-**[▶ Jugar online](ENLACE_A_LA_DEMO)** · [Código](https://github.com/JFranco1105/Sudoku-Mobile)
-
 ## Características
 
 - Tablero de Sudoku con las reglas clásicas [y niveles de dificultad]
