@@ -55,6 +55,3 @@ Sudoku-Mobile/
 - Guardar y recuperar estado en el dispositivo.
 - Convertir una aplicación web en una app móvil con Capacitor.
 
-## Licencia
-
-MIT. Consulta el archivo [LICENSE](LICENSE).
